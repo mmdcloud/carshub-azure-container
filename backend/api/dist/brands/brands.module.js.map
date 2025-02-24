@@ -1,0 +1,1 @@
+{"version":3,"file":"brands.module.js","sourceRoot":"","sources":["../../src/brands/brands.module.ts"],"names":[],"mappings":";;;;;;;;;AAAA,2CAAwC;AACxC,qDAAiD;AACjD,2DAAuD;AACvD,yDAAqD;AAM9C,IAAM,YAAY,GAAlB,MAAM,YAAY;CAAI,CAAA;AAAhB,oCAAY;uBAAZ,YAAY;IAJxB,IAAA,eAAM,EAAC;QACN,WAAW,EAAE,CAAC,oCAAgB,CAAC;QAC/B,SAAS,EAAE,CAAC,8BAAa,EAAE,GAAG,kCAAe,CAAC;KAC/C,CAAC;GACW,YAAY,CAAI"}
