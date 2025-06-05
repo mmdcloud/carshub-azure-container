@@ -1,4 +1,4 @@
-# Creating a resource group
+# # Creating a resource group
 module "carshub_rg" {
   source   = "./modules/resource_groups"
   name     = "carshub_rg"
@@ -142,7 +142,7 @@ module "carshub_backend_app" {
   depends_on       = [null_resource.push_backend]
 }
 
-# Storage
+# # Storage
 module "carshub_storage" {
   source                   = "./modules/storage"
   name                     = "carshubstorage"
@@ -169,15 +169,26 @@ module "carshub_app_service_plan" {
 }
 
 # Function app for updating storage metadata
-# module "carshub_media_update_function" {
-#   source                     = "./modules/function_app"
-#   name                       = "carsub-media-update"
-#   service_plan_id            = module.carshub_app_service_plan.service_plan_id
-#   storage_account_name       = module.carshub_storage.storage_account_name
-#   storage_account_access_key = module.carshub_storage.storage_account_access_key
-#   location                   = var.location
-#   rg                         = module.carshub_rg.name
-# }
+module "carshub_media_update_function" {
+  source                     = "./modules/function_app"
+  name                       = "carsub-media-update"
+  service_plan_id            = module.carshub_app_service_plan.service_plan_id
+  storage_account_name       = module.carshub_storage.storage_account_name
+  storage_account_access_key = module.carshub_storage.storage_account_access_key
+  location                   = var.location
+  rg                         = module.carshub_rg.name
+  identity_type              = "SystemAssigned"
+  identity_ids               = []
+  app_settings = {
+    FUNCTIONS_WORKER_RUNTIME        = "python"
+    PYTHON_ENABLE_WORKER_EXTENSIONS = "1"
+    AZURE_FUNCTIONS_ENVIRONMENT     = "Production"
+    FUNCTIONS_EXTENSION_VERSION     = "~4"
+    SCM_DO_BUILD_DURING_DEPLOYMENT  = "true"
+    ENABLE_ORYX_BUILD               = "true"
+  }
+  python_version = "3.12"
+}
 
 # # Deploying function app to Azure
 # resource "null_resource" "deploy_media_update_function" {

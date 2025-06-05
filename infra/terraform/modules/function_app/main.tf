@@ -9,19 +9,18 @@ resource "azurerm_linux_function_app" "function" {
 
   site_config {
     application_stack {
-      python_version = "3.12"
+      python_version = var.python_version
     }
     cors {
-      allowed_origins = ["https://portal.azure.com"]
+      # allowed_origins = ["https://portal.azure.com"]
     }
   }
 
-  app_settings = {
-    FUNCTIONS_WORKER_RUNTIME = "python"
-  }
-
+  app_settings = var.app_settings
+  
   identity {
-    type = "SystemAssigned"
+    identity_ids = var.identity_ids
+    type         = var.identity_type
   }
 }
 
