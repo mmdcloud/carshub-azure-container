@@ -17,9 +17,9 @@ export const databaseProviders = [
                 dialect: 'mysql',
                 host: process.env.DB_PATH,
                 port: 3306,
-                dialectOptions:{
-                    sockerPath:process.env.DB_PATH
-                },
+                // dialectOptions:{
+                //     sockerPath:process.env.DB_PATH
+                // },
                 username: process.env.UN,
                 password: process.env.CREDS,                
                 database: 'carshub',

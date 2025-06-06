@@ -1,1 +1,0 @@
-{"version":3,"file":"inventory.providers.js","sourceRoot":"","sources":["../../src/inventory/inventory.providers.ts"],"names":[],"mappings":";;;AAAA,8EAAmE;AACnE,kEAAwD;AAE3C,QAAA,kBAAkB,GAAG;IAC9B;QACI,OAAO,EAAE,sBAAsB;QAC/B,QAAQ,EAAE,4BAAS;KACtB;IACD;QACI,OAAO,EAAE,6BAA6B;QACtC,QAAQ,EAAE,uCAAc;KAC3B;CACJ,CAAC"}
