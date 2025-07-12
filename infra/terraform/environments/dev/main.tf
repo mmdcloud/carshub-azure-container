@@ -10,8 +10,6 @@ module "carshub_rg" {
   location = var.location
 }
 
-# Creating a virtual network 
-
 # Key Vault for storing secrets
 module "carshub_key_vault" {
   source = "./modules/key_vault"
