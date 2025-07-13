@@ -1,3 +1,3 @@
 variable "location" {
-  default = "West US"
+  default = "Central US"
 }

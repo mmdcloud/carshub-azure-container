@@ -1,5 +1,5 @@
 variable "location" {
-  default = "West US"
+  default = "Central US"
 }
 
 variable "public_subnet_cidrs" {

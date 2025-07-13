@@ -1,10 +1,27 @@
 #!/bin/bash
-mkdir frontend-code
-cp -r ../../../frontend/* frontend-code/
-cd frontend-code
+set -e
 
-az acr login --name myacr
+# Get the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORK_DIR="$(mktemp -d)"
 
+# Copy frontend source to temp directory
+cp -r "$SCRIPT_DIR"/* "$WORK_DIR/"
+cd "$WORK_DIR"
+
+# Create environment file
+cat > .env << EOL
+BASE_URL=$2
+CDN_URL=$2
+EOL
+
+# Login to Azure Container Registry
+az acr login --name $1
+
+# Build and push Docker image
 docker buildx build --tag carshub-frontend --file ./Dockerfile .
-docker tag carshub-frontend:latest $1.azurecr.io/carshub-frontend/carshub-frontend:latest
-docker push $1.azurecr.io/carshub-frontend/carshub-frontend:latest
+docker tag carshub-frontend:latest $1/carshub-frontend/carshub-frontend:latest
+docker push $1/carshub-frontend/carshub-frontend:latest
+
+# Cleanup
+rm -rf "$WORK_DIR"
