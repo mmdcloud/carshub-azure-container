@@ -3,6 +3,8 @@ mkdir backend-code
 cp -r ../../../backend/api/* backend-code/
 cd backend-code
 
+az acr login --name myacr
+
 docker buildx build --tag carshub-backend --file ./Dockerfile .
-docker tag carshub-backend:latest us-central1-docker.pkg.dev/$1/carshub-backend/carshub-backend:latest
-docker push us-central1-docker.pkg.dev/$1/carshub-backend/carshub-backend:latest
+docker tag carshub-backend:latest $1.azurecr.io/carshub-backend/carshub-backend:latest
+docker push $1.azurecr.io/carshub-backend/carshub-backend:latest

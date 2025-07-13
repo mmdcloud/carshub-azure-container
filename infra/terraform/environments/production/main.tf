@@ -3,20 +3,23 @@ data "vault_generic_secret" "sql" {
   path = "secret/sql"
 }
 
+# Get current Azure client configuration
+data "azurerm_client_config" "current" {}
+
 # Creating a resource group
 module "carshub_rg" {
-  source   = "./modules/resource_group"
+  source   = "../../modules/resource_group"
   name     = "carshub-rg"
   location = var.location
 }
 
 # Virtual network
 module "carshub_vnet" {
-  source              = "./modules/vnet"
+  source              = "../../modules/vnet"
   name                = "carshub-vnet"
   address_space       = ["10.0.0.0/16"]
   resource_group_name = module.carshub_rg.name
-  location            = module.carshub_rg.location
+  location            = var.location
   subnets = [
     {
       name           = "public subnet 1"
@@ -49,7 +52,7 @@ module "carshub_vnet" {
 resource "azurerm_network_security_group" "carshub_frontend_agw_nsg" {
   name                = "carshub-frontend-agw-nsg"
   resource_group_name = module.carshub_rg.name
-  location            = module.carshub_rg.location
+  location            = var.location
 
   security_rule {
     name                       = "AllowHTTP"
@@ -79,7 +82,7 @@ resource "azurerm_network_security_group" "carshub_frontend_agw_nsg" {
 resource "azurerm_network_security_group" "carshub_backend_agw_nsg" {
   name                = "carshub-backend-agw-nsg"
   resource_group_name = module.carshub_rg.name
-  location            = module.carshub_rg.location
+  location            = var.location
 
   security_rule {
     name                       = "AllowHTTP"
@@ -106,41 +109,187 @@ resource "azurerm_network_security_group" "carshub_backend_agw_nsg" {
   }
 }
 
-resource "azurerm_subnet_network_security_group_association" "agw" {
+resource "azurerm_subnet_network_security_group_association" "carshub_frontend_nsg_association" {
   subnet_id                 = module.carshub_vnet.subnets[0].id
   network_security_group_id = azurerm_network_security_group.carshub_frontend_agw_nsg.id
 }
 
-resource "azurerm_subnet_network_security_group_association" "agw" {
+resource "azurerm_subnet_network_security_group_association" "carshub_backend_nsg_association" {
   subnet_id                 = module.carshub_vnet.subnets[1].id
   network_security_group_id = azurerm_network_security_group.carshub_backend_agw_nsg.id
+}
+
+resource "azurerm_key_vault" "carshub_frontend_keyvault" {
+  name                        = "carshub-frontend-kv"
+  resource_group_name         = module.carshub_rg.name
+  location                    = var.location
+  enabled_for_disk_encryption = true
+  tenant_id                   = data.azurerm_client_config.current.tenant_id
+  soft_delete_retention_days  = 7
+  purge_protection_enabled    = true
+  sku_name                    = "standard"
+
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = data.azurerm_client_config.current.object_id
+
+    certificate_permissions = [
+      "Create", "Delete", "DeleteIssuers", "Get", "GetIssuers", "Import", "List", "ListIssuers", "ManageContacts", "ManageIssuers", "SetIssuers", "Update"
+    ]
+
+    key_permissions = [
+      "Get", "List"
+    ]
+
+    secret_permissions = [
+      "Get", "List", "Set", "Delete", "Recover", "Backup", "Restore", "Purge"
+    ]
+  }
+}
+
+resource "azurerm_key_vault" "carshub_backend_keyvault" {
+  name                        = "carshub-backend-kv"
+  resource_group_name         = module.carshub_rg.name
+  location                    = var.location
+  enabled_for_disk_encryption = true
+  tenant_id                   = data.azurerm_client_config.current.tenant_id
+  soft_delete_retention_days  = 7
+  purge_protection_enabled    = true
+  sku_name                    = "standard"
+
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = data.azurerm_client_config.current.object_id
+
+    certificate_permissions = [
+      "Create", "Delete", "DeleteIssuers", "Get", "GetIssuers", "Import", "List", "ListIssuers", "ManageContacts", "ManageIssuers", "SetIssuers", "Update"
+    ]
+
+    key_permissions = [
+      "Get", "List"
+    ]
+
+    secret_permissions = [
+      "Get", "List", "Set", "Delete", "Recover", "Backup", "Restore", "Purge"
+    ]
+  }
+}
+
+resource "azurerm_key_vault_certificate" "carshub_frontend_keyvault_certificate" {
+  name         = "carshub-frontend-keyvault-certificate"
+  key_vault_id = azurerm_key_vault.carshub_frontend_keyvault.id
+
+  certificate_policy {
+    issuer_parameters {
+      name = "Self"
+    }
+
+    key_properties {
+      exportable = true
+      key_size   = 2048
+      key_type   = "RSA"
+      reuse_key  = true
+    }
+
+    lifetime_action {
+      action {
+        action_type = "AutoRenew"
+      }
+
+      trigger {
+        days_before_expiry = 30
+      }
+    }
+
+    secret_properties {
+      content_type = "application/x-pkcs12"
+    }
+
+    x509_certificate_properties {
+      extended_key_usage = ["1.3.6.1.5.5.7.3.1"]
+      key_usage = [
+        "digitalSignature",
+        "keyEncipherment"
+      ]
+      subject_alternative_names {
+        dns_names = ["*.yourdomain.com"]
+      }
+      subject            = "CN=*.yourdomain.com"
+      validity_in_months = 12
+    }
+  }
+}
+
+resource "azurerm_key_vault_certificate" "carshub_backend_keyvault_certificate" {
+  name         = "carshub-backend-keyvault-certificate"
+  key_vault_id = azurerm_key_vault.carshub_backend_keyvault.id
+
+  certificate_policy {
+    issuer_parameters {
+      name = "Self"
+    }
+
+    key_properties {
+      exportable = true
+      key_size   = 2048
+      key_type   = "RSA"
+      reuse_key  = true
+    }
+
+    lifetime_action {
+      action {
+        action_type = "AutoRenew"
+      }
+
+      trigger {
+        days_before_expiry = 30
+      }
+    }
+
+    secret_properties {
+      content_type = "application/x-pkcs12"
+    }
+
+    x509_certificate_properties {
+      extended_key_usage = ["1.3.6.1.5.5.7.3.1"]
+      key_usage = [
+        "digitalSignature",
+        "keyEncipherment"
+      ]
+      subject_alternative_names {
+        dns_names = ["*.yourdomain.com"]
+      }
+      subject            = "CN=*.yourdomain.com"
+      validity_in_months = 12
+    }
+  }
 }
 
 # Public IP for Frontend Application Gateway
 resource "azurerm_public_ip" "carshub_frontend_agw_public_ip" {
   name                = "carshub-frontend-agw-public-ip"
   resource_group_name = module.carshub_rg.name
-  location            = module.carshub_rg.location
+  location            = var.location
   allocation_method   = "Static"
   sku                 = "Standard"
-  domain_name_label   = "prod-agw-${lower(substr(md5(azurerm_resource_group.agw.id), 0, 8))}"
+  domain_name_label   = "carshub-frontend-madmax"
 }
 
 # Public IP for Backend Application Gateway
 resource "azurerm_public_ip" "carshub_backend_agw_public_ip" {
   name                = "carshub-backend-agw-public-ip"
   resource_group_name = module.carshub_rg.name
-  location            = module.carshub_rg.location
+  location            = var.location
   allocation_method   = "Static"
   sku                 = "Standard"
-  domain_name_label   = "prod-agw-${lower(substr(md5(azurerm_resource_group.agw.id), 0, 8))}"
+  domain_name_label   = "carshub-backend-madmax"
 }
 
 # Application gateway for frontend
 resource "azurerm_application_gateway" "carshub_frontend_agw" {
   name                = "carshub-frontend-agw"
   resource_group_name = module.carshub_rg.name
-  location            = module.carshub_rg.location
+  location            = var.location
 
   sku {
     name     = "WAF_v2"
@@ -205,7 +354,7 @@ resource "azurerm_application_gateway" "carshub_frontend_agw" {
 
   ssl_certificate {
     name                = "wildcard-cert"
-    key_vault_secret_id = azurerm_key_vault_certificate.wildcard.secret_id
+    key_vault_secret_id = azurerm_key_vault_certificate.carshub_frontend_keyvault_certificate.secret_id
   }
 
   http_listener {
@@ -231,15 +380,13 @@ resource "azurerm_application_gateway" "carshub_frontend_agw" {
   }
 
   zones = ["1", "2", "3"]
-
-  depends_on = [azurerm_monitor_diagnostic_setting.agw]
 }
 
 # Application gateway for backend
 resource "azurerm_application_gateway" "carshub_backend_agw" {
   name                = "carshub-backend-agw"
   resource_group_name = module.carshub_rg.name
-  location            = module.carshub_rg.location
+  location            = var.location
 
   sku {
     name     = "WAF_v2"
@@ -303,7 +450,7 @@ resource "azurerm_application_gateway" "carshub_backend_agw" {
 
   ssl_certificate {
     name                = "wildcard-cert"
-    key_vault_secret_id = azurerm_key_vault_certificate.wildcard.secret_id
+    key_vault_secret_id = azurerm_key_vault_certificate.carshub_backend_keyvault_certificate.secret_id
   }
 
   http_listener {
@@ -329,13 +476,55 @@ resource "azurerm_application_gateway" "carshub_backend_agw" {
   }
 
   zones = ["1", "2", "3"]
+}
 
-  depends_on = [azurerm_monitor_diagnostic_setting.agw]
+resource "azurerm_log_analytics_workspace" "log_analytics_workspace" {
+  name                = "carshub-log-analytics-workspace"
+  resource_group_name = module.carshub_rg.name
+  location            = var.location
+  sku                 = "PerGB2018"
+  retention_in_days   = 90
+}
+
+resource "azurerm_monitor_diagnostic_setting" "carshub_frontend_monitor_setting" {
+  name                       = "carshub-backend-agw-diagnostics"
+  target_resource_id         = azurerm_application_gateway.carshub_frontend_agw.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.log_analytics_workspace.id
+
+  enabled_log {
+    category = "ApplicationGatewayAccessLog"
+  }
+
+  enabled_log {
+    category = "ApplicationGatewayPerformanceLog"
+  }
+
+  enabled_log {
+    category = "ApplicationGatewayFirewallLog"
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "carshub_backend_monitor_setting" {
+  name                       = "carshub-backend-agw-diagnostics"
+  target_resource_id         = azurerm_application_gateway.carshub_backend_agw.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.log_analytics_workspace.id
+
+  enabled_log {
+    category = "ApplicationGatewayAccessLog"
+  }
+
+  enabled_log {
+    category = "ApplicationGatewayPerformanceLog"
+  }
+
+  enabled_log {
+    category = "ApplicationGatewayFirewallLog"
+  }
 }
 
 # Key Vault for storing secrets
 module "carshub_key_vault" {
-  source = "./modules/key_vault"
+  source = "../../modules/key_vault"
   key_permissions = [
     "Create",
     "Get"
@@ -354,17 +543,17 @@ module "carshub_key_vault" {
   vault_name                 = "carshub"
   secrets = [
     {
-      name  = tostring(data.vault_generic_secret.rds.data["username"])
-      value = tostring(data.vault_generic_secret.rds.data["password"])
+      name  = tostring(data.vault_generic_secret.sql.data["username"])
+      value = tostring(data.vault_generic_secret.sql.data["password"])
     }
   ]
 }
 
 # Creating carshub database ( MySQL )
 module "carshub_db" {
-  source         = "./modules/database"
-  admin_username = tostring(data.vault_generic_secret.rds.data["username"])
-  admin_password = tostring(data.vault_generic_secret.rds.data["password"])
+  source         = "../../modules/database"
+  admin_username = tostring(data.vault_generic_secret.sql.data["username"])
+  admin_password = tostring(data.vault_generic_secret.sql.data["password"])
   charset        = "utf8"
   db_name        = "carshub"
   server_name    = "carshub"
@@ -376,7 +565,7 @@ module "carshub_db" {
 
 # Carshub container registry 
 module "carshub_container_registry" {
-  source        = "./modules/container_registry"
+  source        = "../../modules/container_registry"
   name          = "carshubweb"
   rg            = module.carshub_rg.name
   location      = var.location
@@ -387,7 +576,7 @@ module "carshub_container_registry" {
 # Push frontend artifact to container registry
 resource "null_resource" "push_frontend" {
   provisioner "local-exec" {
-    command = "bash ../../frontend/artifact_push.sh https://${module.carshub_backend_app.url}"
+    command = "bash ../../../src/frontend/artifact_push.sh https://${module.carshub_backend_app.url}"
   }
   depends_on = [module.carshub_container_registry]
 }
@@ -395,14 +584,14 @@ resource "null_resource" "push_frontend" {
 # Push backend artifact to container registry
 resource "null_resource" "push_backend" {
   provisioner "local-exec" {
-    command = "bash ../../backend/api/artifact_push.sh"
+    command = "bash ../../../src/backend/api/artifact_push.sh"
   }
   depends_on = [module.carshub_container_registry]
 }
 
 # Creating a container app env
 module "carshub_app_env" {
-  source   = "./modules/container_app/container_app_env"
+  source   = "../../modules/container_app/container_app_env"
   name     = "carshub-app-env"
   rg       = module.carshub_rg.name
   location = var.location
@@ -410,7 +599,7 @@ module "carshub_app_env" {
 
 # CarsHub frontend container app
 module "carshub_frontend_app" {
-  source         = "./modules/container_app"
+  source         = "../../modules/container_app"
   image_uri      = "${module.carshub_container_registry.login_server}/carshub-frontend/carshub-frontend:latest"
   app_name       = "carshub-frontend"
   container_name = "carshub-frontend"
@@ -436,7 +625,7 @@ module "carshub_frontend_app" {
 
 # CarsHub backend container app
 module "carshub_backend_app" {
-  source         = "./modules/container_app"
+  source         = "../../modules/container_app"
   image_uri      = "${module.carshub_container_registry.login_server}/carshub-backend/carshub-backend:latest"
   app_name       = "carshub-backend"
   container_name = "carshub-backend"
@@ -472,7 +661,7 @@ module "carshub_backend_app" {
 
 # # Storage
 module "carshub_storage" {
-  source                   = "./modules/storage"
+  source                   = "../../modules/storage"
   name                     = "carshubstorage"
   rg                       = module.carshub_rg.name
   location                 = var.location
@@ -488,7 +677,7 @@ module "carshub_storage" {
 
 # App Service Plan
 module "carshub_app_service_plan" {
-  source   = "./modules/app_service_plan"
+  source   = "../../modules/app_service_plan"
   name     = "carshub-app-service-plan"
   location = var.location
   rg       = module.carshub_rg.name
@@ -498,8 +687,8 @@ module "carshub_app_service_plan" {
 
 # Function app for updating storage metadata
 module "carshub_media_update_function" {
-  source                     = "./modules/function_app"
-  name                       = "carsub-media-update"
+  source                     = "../../modules/function_app"
+  name                       = "carshub-media-update"
   service_plan_id            = module.carshub_app_service_plan.service_plan_id
   storage_account_name       = module.carshub_storage.storage_account_name
   storage_account_access_key = module.carshub_storage.storage_account_access_key
