@@ -6,6 +6,13 @@ data "vault_generic_secret" "sql" {
 # Get current Azure client configuration
 data "azurerm_client_config" "current" {}
 
+# Random string for storage account name uniqueness
+resource "random_string" "storage_suffix" {
+  length  = 8
+  special = false
+  upper   = false
+}
+
 # Creating a resource group
 module "carshub_rg" {
   source   = "../../modules/resource_group"
@@ -318,8 +325,8 @@ resource "azurerm_application_gateway" "carshub_frontend_agw" {
   location            = var.location
 
   sku {
-    name     = "WAF_v2"
-    tier     = "WAF_v2"
+    name = "WAF_v2"
+    tier = "WAF_v2"
     # capacity = 2
   }
 
@@ -356,11 +363,11 @@ resource "azurerm_application_gateway" "carshub_frontend_agw" {
     interval            = 30
     timeout             = 30
     unhealthy_threshold = 3
-    host                = "${module.carshub_frontend_app.url}"
+    host                = module.carshub_frontend_app.url
   }
 
   backend_http_settings {
-    name                  = "carshub-frontend-https-settings"
+    name                  = "carshub-frontend-http-settings"
     cookie_based_affinity = "Disabled"
     port                  = 80
     protocol              = "Http"
@@ -375,7 +382,7 @@ resource "azurerm_application_gateway" "carshub_frontend_agw" {
     rule_set_version         = "3.2"
     request_body_check       = true
     max_request_body_size_kb = 128
-    file_upload_limit_mb     = 100    
+    file_upload_limit_mb     = 100
   }
 
   # ssl_certificate {
@@ -384,7 +391,7 @@ resource "azurerm_application_gateway" "carshub_frontend_agw" {
   # }
 
   http_listener {
-    name                           = "carshub-frontend-https-listener"
+    name                           = "carshub-frontend-http-listener"
     frontend_ip_configuration_name = "carshub-frontend-agw-ip"
     frontend_port_name             = "http"
     protocol                       = "Http"
@@ -392,11 +399,11 @@ resource "azurerm_application_gateway" "carshub_frontend_agw" {
   }
 
   request_routing_rule {
-    name                       = "carshub-frontend-https-rule"
+    name                       = "carshub-frontend-http-rule"
     rule_type                  = "Basic"
-    http_listener_name         = "carshub-frontend-https-listener"
+    http_listener_name         = "carshub-frontend-http-listener"
     backend_address_pool_name  = "carshubfrontendcontainerapp"
-    backend_http_settings_name = "carshub-frontend-https-settings"
+    backend_http_settings_name = "carshub-frontend-http-settings"
     priority                   = 100
   }
 
@@ -415,8 +422,8 @@ resource "azurerm_application_gateway" "carshub_backend_agw" {
   location            = var.location
 
   sku {
-    name     = "WAF_v2"
-    tier     = "WAF_v2"
+    name = "WAF_v2"
+    tier = "WAF_v2"
     # capacity = 2
   }
 
@@ -452,11 +459,11 @@ resource "azurerm_application_gateway" "carshub_backend_agw" {
     interval            = 30
     timeout             = 30
     unhealthy_threshold = 3
-    host                = "${module.carshub_backend_app.url}"
+    host                = module.carshub_backend_app.url
   }
 
   backend_http_settings {
-    name                  = "carshub-backend-https-settings"
+    name                  = "carshub-backend-http-settings"
     cookie_based_affinity = "Disabled"
     port                  = 80
     protocol              = "Http"
@@ -480,7 +487,7 @@ resource "azurerm_application_gateway" "carshub_backend_agw" {
   # }
 
   http_listener {
-    name                           = "carshub-backend-https-listener"
+    name                           = "carshub-backend-http-listener"
     frontend_ip_configuration_name = "carshub-backend-agw-ip"
     frontend_port_name             = "http"
     protocol                       = "Http"
@@ -488,11 +495,11 @@ resource "azurerm_application_gateway" "carshub_backend_agw" {
   }
 
   request_routing_rule {
-    name                       = "carshub-backend-https-rule"
+    name                       = "carshub-backend-http-rule"
     rule_type                  = "Basic"
-    http_listener_name         = "carshub-backend-https-listener"
+    http_listener_name         = "carshub-backend-http-listener"
     backend_address_pool_name  = "carshubbackendcontainerapp"
-    backend_http_settings_name = "carshub-backend-https-settings"
+    backend_http_settings_name = "carshub-backend-http-settings"
     priority                   = 100
   }
 
@@ -701,13 +708,6 @@ module "carshub_storage" {
       container_access_type = "private"
     }
   ]
-}
-
-# Random string for storage account name uniqueness
-resource "random_string" "storage_suffix" {
-  length  = 8
-  special = false
-  upper   = false
 }
 
 # App Service Plan 
