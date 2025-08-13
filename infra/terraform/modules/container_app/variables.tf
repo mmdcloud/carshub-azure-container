@@ -10,6 +10,8 @@ variable "target_port" {}
 variable "external_enabled" {}
 variable "login_server" {}
 variable "admin_password" {}
+variable "identity_type" {}
+variable "identity_ids" {}
 variable "admin_username" {}
 # variable "identity" {}
 variable "env" {

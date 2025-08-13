@@ -12,7 +12,10 @@ resource "azurerm_container_app" "container_app" {
       latest_revision = true
     }
   }
-
+  identity {
+    type = var.identity_type
+    identity_ids = var.identity_ids
+  }
   template {
     container {
       name   = var.container_name
